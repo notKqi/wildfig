@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import discord
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from redbot.core import Config, commands
 from discord.ext import tasks
 
@@ -240,9 +240,7 @@ class Football(commands.Cog):
         desc = ""
 
         for x in data:
-            desc += (
-                f"\n{x['position']}. **{x['team_name']}** | Season: {x['season']} | Country: {x['country']} | Points: {x['points']} | GD: {x['gd']}"
-            )
+            desc += f"\n{x['position']}. **{x['team_name']}** | Season: {x['season']} | Points: {x['points']} | GD: {x['gd']}"
 
         em.description = desc
         try:
@@ -280,10 +278,13 @@ class Football(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
-    async def last5(self, ctx, fromdate: str, todate: str = datetime.now().strftime("%d.%m.%Y")):
+    async def last5(self, ctx):
         """Get the 5 last results for Manchester FC (Played)."""
         if await self.is_ratelimited:
             return await ctx.send("You're ratelimited. Please try later.")
+
+        fromdate = (datetime.now() - timedelta(days=30)).strftime("%d.%m.%Y")
+        todate = datetime.now().strftime("%d.%m.%Y")
 
         data = await self.get_5last_results(fromdate, todate)
         sortedmatch = sorted(
