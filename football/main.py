@@ -44,27 +44,32 @@ class Football(commands.Cog):
             em = discord.Embed(color=discord.Color.green())
 
             async with self.config.ratelimit() as settings:
-                if int(matchid[0]["status"]) > 0 and int(matchid[0]["status"]) <= 2 and settings["status"] != "started":
+                if (
+                    matchid[0]["status"] not in ["FT", "HT", "45"]
+                    and int(matchid[0]["status"]) > 0
+                    and int(matchid[0]["status"]) <= 2
+                    and settings["status"] != "started"
+                ):
                     settings["status"] = "started"
                     em.description = "Match has started!"
                     em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                     em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                     await channel.send(embed=em)
-                elif matchid[0]["status"] == "45" and settings["status"] != "ht":
+                if matchid[0]["status"] in ["HT", "45"] and settings["status"] != "ht":
                     settings["status"] = "ht"
                     em.description = "Match is in halftime!"
                     em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                     em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                     em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
                     await channel.send(embed=em)
-                elif matchid[0]["timer"] == "90+" and settings["status"] != "extended":
+                if matchid[0]["timer"] == "90+" and settings["status"] != "extended":
                     settings["status"] = "extended"
                     em.description = "Match is extended!"
                     em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                     em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
-                    em.add_field(name="Score", value=matchid[0]["ht_score"])
+                    em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
                     await channel.send(embed=em)
-                elif matchid[0]["status"] == "FT" and settings["status"] != "done":
+                if matchid[0]["status"] == "FT" and settings["status"] != "done":
                     settings["status"] = "done"
                     em.description = "Match is finished!"
                     em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
