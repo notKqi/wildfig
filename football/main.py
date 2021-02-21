@@ -14,7 +14,7 @@ class Football(commands.Cog):
         self.apikey = "565ec012251f932ea400000172f681f898f64c54691ae4eca725f978"
         self.baseurl = "http://api.football-api.com/2.0"
         self.config.register_guild(channel={"channelid": None})
-        self.config.register_global(ratelimit={"lastreset": None, "calls_left": 1000, "lineup": None, "lastevent": None, "status": None})
+        self.config.register_global(ratelimit={"lastreset": None, "calls_left": 1000, "lineup": None, "lastevent": None})
         self.reset.start()
         self.stream.start()
 
@@ -43,6 +43,24 @@ class Football(commands.Cog):
                 continue
             em = discord.Embed(color=discord.Color.green())
 
+            if int(matchid[0]["status"]) > 0 and int(matchid[0]["status"]) <= 2:
+                em.description = "Match has started!"
+                em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
+                em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
+                await channel.send(embed=em)
+            elif matchid[0]["status"] == "45":
+                em.description = "Match is in halftime!"
+                em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
+                em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
+                em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
+                await channel.send(embed=em)
+            elif matchid[0]["status"] == "FT":
+                em.description = "Match is finished!"
+                em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
+                em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
+                em.add_field(name="Fulltime score", value=matchid[0]["ft_score"])
+                await channel.send(embed=em)
+
             async with self.config.ratelimit() as settings:
                 if lineup["lineup"]["localteam"] != [] and lineup["lineup"]["visitorteam"] != [] and settings["lineup"] != matchid[0]["id"]:
                     visitor = ""
@@ -59,26 +77,8 @@ class Football(commands.Cog):
                     settings["lineup"] = matchid[0]["id"]
                     await channel.send(embed=em)
 
-                if matchid[0]["status"] and matchid[0]["status"] != settings["status"]:
-                    if matchid[0]["status"] > 0 and matchid[0]["status"] <= 2:
-                        em.description = "Match has started!"
-                        em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
-                        em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
-                    elif matchid[0]["status"] == "HT":
-                        em.description = "Match is in halftime!"
-                        em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
-                        em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
-                        em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
-                    elif matchid[0]["status"] == "FT":
-                        em.description = "Match is finished!"
-                        em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
-                        em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
-                        em.add_field(name="Fulltime score", value=matchid[0]["ft_score"])
-                    settings["status"] = matchid[0]["status"]
-                    await channel.send(embed=em)
-
-                if matchid[0]["events"][0]["id"] != settings["lastevent"] and matchid[0]["events"] != []:
-                    settings["lastevent"] = matchid[0]["events"][0]["id"]
+                if matchid[0]["events"] != [] and matchid[0]["events"][-1]["id"] != settings["lastevent"]:
+                    settings["lastevent"] = matchid[0]["events"][-1]["id"]
 
                     dictt = {
                         "goal": "\U000026BD GOAL",
@@ -87,21 +87,21 @@ class Football(commands.Cog):
                         "redcard": "\U0001F7E5 Red Card",
                     }
 
-                    em.description = f"**{[y for z, y in dictt.items() if matchid[0]['events'][0]['type'] in z][0]}**"
+                    em.description = f"**{[y for z, y in dictt.items() if matchid[0]['events'][-1]['type'] in z][0]}**"
                     em.add_field(
                         name="Team",
-                        value=matchid[0]["localteam_name"] if matchid[0]["events"][0]["team"] == "localteam" else matchid[0]["visitorteam_name"],
+                        value=matchid[0]["localteam_name"] if matchid[0]["events"][-1]["team"] == "localteam" else matchid[0]["visitorteam_name"],
                     )
-                    em.add_field(name="Player", value=matchid[0]["events"][0]["player"])
-                    if matchid[0]["events"][0]["type"] == "subst":
-                        em.add_field(name="Substitute", value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}")
-                    elif matchid[0]["events"][0]["type"] == "goal":
+                    em.add_field(name="Player", value=matchid[0]["events"][-1]["player"])
+                    if matchid[0]["events"][-1]["type"] == "subst":
+                        em.add_field(name="Substitute", value=f"{matchid[0]['events'][-1]['assist']}\nMinutes: {matchid[0]['events'][-1]['minute']}")
+                    elif matchid[0]["events"][-1]["type"] == "goal":
                         em.add_field(
                             name="Result",
-                            value=f"{matchid[0]['events'][0]['result']}\nMinutes: {matchid[0]['events'][0]['minute']}\nAssist: {matchid[0]['events'][0]['assist']}",
+                            value=f"{matchid[0]['events'][-1]['result']}\nMinutes: {matchid[0]['events'][-1]['minute']}\nAssist: {matchid[0]['events'][-1]['assist']}",
                         )
-                    elif matchid[0]["events"][0]["type"] in ["yellowcard", "redcard"]:
-                        em.add_field(name="Behavior", value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}")
+                    elif matchid[0]["events"][-1]["type"] in ["yellowcard", "redcard"]:
+                        em.add_field(name="Behavior", value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][-1]['minute']}")
                     await channel.send(embed=em)
 
     async def get_5last_results(self, from_date: str, current_date: str):
