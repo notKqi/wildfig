@@ -14,14 +14,7 @@ class Football(commands.Cog):
         self.apikey = "565ec012251f932ea400000172f681f898f64c54691ae4eca725f978"
         self.baseurl = "http://api.football-api.com/2.0"
         self.config.register_guild(channel={"channelid": None})
-        self.config.register_global(
-            ratelimit={
-                "lastreset": None,
-                "calls_left": 1000,
-                "lastevent": None,
-                "status": None,
-            }
-        )
+        self.config.register_global(ratelimit={"lastreset": None, "calls_left": 1000, "lineup": None, "lastevent": None, "status": None})
         self.reset.start()
         self.stream.start()
 
@@ -36,7 +29,7 @@ class Football(commands.Cog):
                 ratelimit["lastreset"] = datetime.now().timestamp()
                 ratelimit["calls_left"] = 1000
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=10)
     async def stream(self):
         if await self.is_ratelimited:
             return
@@ -50,22 +43,24 @@ class Football(commands.Cog):
                 continue
             em = discord.Embed(color=discord.Color.green())
 
-            if lineup["lineup"]["localteam"] != [] and lineup["lineup"]["visitorteam"] != []:
-                visitor = ""
-                local = ""
-                for x in lineup["lineup"]:
-                    if x == "localteam":
-                        for y in lineup["lineup"][x]:
-                            local += f"\n**{y['name']}**"
-                    else:
-                        for y in lineup["lineup"][x]:
-                            visitor += f"\n**{y['name']}**"
-
-                em.description = f"__**Local Team**__\n{local}\n\n\n__**Visitor Team**__\n{visitor}"
-
             async with self.config.ratelimit() as settings:
+                if lineup["lineup"]["localteam"] != [] and lineup["lineup"]["visitorteam"] != [] and settings["lineup"] != matchid[0]["id"]:
+                    visitor = ""
+                    local = ""
+                    for x in lineup["lineup"]:
+                        if x == "localteam":
+                            for y in lineup["lineup"][x]:
+                                local += f"\n**{y['name']}**"
+                        else:
+                            for y in lineup["lineup"][x]:
+                                visitor += f"\n**{y['name']}**"
+
+                    em.description = f"__**Local Team**__\n{local}\n\n\n__**Visitor Team**__\n{visitor}"
+                    settings["lineup"] = matchid[0]["id"]
+                    await channel.send(embed=em)
+
                 if matchid[0]["status"] and matchid[0]["status"] != settings["status"]:
-                    if matchid[0]["status"] not in ["FT", "HT"]:
+                    if matchid[0]["status"] > 0 and matchid[0]["status"] <= 2:
                         em.description = "Match has started!"
                         em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                         em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
@@ -74,14 +69,15 @@ class Football(commands.Cog):
                         em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                         em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                         em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
-                    else:
+                    elif matchid[0]["status"] == "FT":
                         em.description = "Match is finished!"
                         em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                         em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                         em.add_field(name="Fulltime score", value=matchid[0]["ft_score"])
                     settings["status"] = matchid[0]["status"]
+                    await channel.send(embed=em)
 
-                if matchid[0]["events"] != [] or matchid[0]["events"][0]["id"] != settings["lastevent"]:
+                if matchid[0]["events"][0]["id"] != settings["lastevent"] and matchid[0]["events"] != []:
                     settings["lastevent"] = matchid[0]["events"][0]["id"]
 
                     dictt = {
@@ -98,22 +94,15 @@ class Football(commands.Cog):
                     )
                     em.add_field(name="Player", value=matchid[0]["events"][0]["player"])
                     if matchid[0]["events"][0]["type"] == "subst":
-                        em.add_field(
-                            name="Substitute",
-                            value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}",
-                        )
+                        em.add_field(name="Substitute", value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}")
                     elif matchid[0]["events"][0]["type"] == "goal":
                         em.add_field(
                             name="Result",
                             value=f"{matchid[0]['events'][0]['result']}\nMinutes: {matchid[0]['events'][0]['minute']}\nAssist: {matchid[0]['events'][0]['assist']}",
                         )
                     elif matchid[0]["events"][0]["type"] in ["yellowcard", "redcard"]:
-                        em.add_field(
-                            name="Behavior",
-                            value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}",
-                        )
-
-            await channel.send(embed=em)
+                        em.add_field(name="Behavior", value=f"{matchid[0]['events'][0]['assist']}\nMinutes: {matchid[0]['events'][0]['minute']}")
+                    await channel.send(embed=em)
 
     async def get_5last_results(self, from_date: str, current_date: str):
         async with self.config.ratelimit() as ratelimit:
@@ -218,7 +207,7 @@ class Football(commands.Cog):
         try:
             await ctx.author.send(embed=em)
         except:
-            await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+            await ctx.send(embed=em)
 
     @commands.command()
     @commands.is_owner()
@@ -246,7 +235,7 @@ class Football(commands.Cog):
         try:
             await ctx.author.send(embed=em)
         except:
-            await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+            await ctx.send(embed=em)
 
     @commands.command()
     @commands.guild_only()
@@ -269,12 +258,12 @@ class Football(commands.Cog):
             try:
                 await ctx.author.send(embed=em)
             except:
-                await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+                await ctx.send(embed=em)
             em.description = "".join([x for x in desc][10:])
             try:
                 await ctx.author.send(embed=em)
             except:
-                await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+                await ctx.send(embed=em)
 
     @commands.command()
     @commands.guild_only()
@@ -294,10 +283,7 @@ class Football(commands.Cog):
         )
 
         for x in sortedmatch[-5:]:
-            em = discord.Embed(
-                color=discord.Color.green(),
-                title=f"{x['formatted_date']} (id: {x['id']})",
-            )
+            em = discord.Embed(color=discord.Color.green(), title=f"{x['formatted_date']} (id: {x['id']})")
             em.add_field(name=f"Local team (id: {x['localteam_id']})", value=x["localteam_name"])
             em.add_field(
                 name=f"Visitor team (id: {x['visitorteam_id']})",
@@ -317,7 +303,7 @@ class Football(commands.Cog):
             try:
                 await ctx.author.send(embed=em)
             except:
-                await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+                await ctx.send(embed=em)
 
     @commands.command()
     @commands.guild_only()
@@ -360,7 +346,7 @@ class Football(commands.Cog):
         try:
             await ctx.author.send(embed=em)
         except:
-            await ctx.send(f"{ctx.author.mention}, your dms are closed.")
+            await ctx.send(embed=em)
 
     @commands.command()
     @commands.guild_only()
