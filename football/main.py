@@ -39,7 +39,7 @@ class Football(commands.Cog):
                 continue
             if not (matchid := await self.get_last_matchid):
                 continue
-            if not (lineup := await self.get_lineup(matchid[0]["id"])) or len(lineup["match_info"]) == 0:
+            if not (lineup := await self.get_lineup(int(matchid[0]["id"]))) or len(lineup["match_info"]) == 0:
                 continue
             em = discord.Embed(color=discord.Color.green())
 
@@ -69,9 +69,9 @@ class Football(commands.Cog):
                     em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                     em.add_field(name="Halftime score", value=matchid[0]["ht_score"])
                     await channel.send(embed=em)
-                if matchid[0]["status"] == "FT" and settings["status"] != "done":
+                if matchid[0]["status"] in ["FT", "90"] and settings["status"] != "done":
                     settings["status"] = "done"
-                    em.description = "Match is finished!"
+                    em.description = "Match is done!"
                     em.add_field(name="Local Team", value=matchid[0]["localteam_name"])
                     em.add_field(name="Visitor Team", value=matchid[0]["visitorteam_name"])
                     em.add_field(name="Fulltime score", value=matchid[0]["ft_score"])
@@ -136,7 +136,7 @@ class Football(commands.Cog):
         async with self.config.ratelimit() as ratelimit:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"{self.baseurl}/matches?team_id=9259&from_date={datetime.now().strftime('%d.%m.%Y')}&to_date={datetime.now().strftime('%d.%m.%Y')}&Authorization={self.apikey}"
+                    f"{self.baseurl}/matches?team_id=9259&from_date={(datetime.now() - timedelta(days=30)).strftime('%d.%m.%Y')}&to_date={datetime.now().strftime('%d.%m.%Y')}&Authorization={self.apikey}"
                 ) as j:
                     if j.status != 200:
                         ratelimit["calls_left"] -= 1
