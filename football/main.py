@@ -29,7 +29,7 @@ class Football(commands.Cog):
                 ratelimit["lastreset"] = datetime.now().timestamp()
                 ratelimit["calls_left"] = 1000
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(seconds=30)
     async def stream(self):
         if await self.is_ratelimited:
             return
